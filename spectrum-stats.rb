@@ -103,7 +103,7 @@ CSV.read(ARGV[0], headers: true).each do |r|
   end
 end
 
-blue  = "\033[34m"
+blue  = "\033[34;7m"
 bu = "\033[1;4m"
 reset = "\033[0m"
 
@@ -121,16 +121,12 @@ counts.each do |pn, stats|
 
 Internal number #{blue}#{pn}#{reset} (#{stats[:total]} total logs)
 #{"\n" unless other_stats.empty?}#{other_stats}
-  #{bu}Incoming calls#{reset}
-       Past week: #{stats[:incoming_7]}
-        February: #{stats[:incoming_feb]}
-    Last 60 days: #{stats[:incoming_60]}
+  #{bu}Incoming calls #{reset}       #{bu}Outgoing calls #{reset}
+     Past week: #{stats[:incoming_7]}          Past week: #{stats[:outgoing_7]}
+      February: #{stats[:incoming_feb]}           February: #{stats[:outgoing_feb]}
+  Last 60 days: #{stats[:incoming_60]}       Last 60 days: #{stats[:outgoing_60]}
 
-  #{bu}Outgoing calls#{reset}
-       Past week: #{stats[:outgoing_7]}
-        February: #{stats[:outgoing_feb]}
-    Last 60 days: #{stats[:outgoing_60]}
 
-  OUTPUT
+OUTPUT
 
 end
