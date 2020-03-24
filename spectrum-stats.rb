@@ -2,8 +2,9 @@
 
 require 'CSV'
 
-counts       = Hash.new(0)
-phone_number = ""
+counts = Hash.new { |h, phone_number|
+           h[phone_number] = Hash.new(0)
+         }
 
 FEB_START      = DateTime.parse("2020-02-01 00:00:00 EST").to_time
 MAR_START      = DateTime.parse("2020-03-01 00:00:00 EST").to_time
@@ -11,9 +12,9 @@ ONE_WEEK_AGO   = Time.now - (7 * 24 * 60 * 60)
 SIXTY_DAYS_AGO = Time.now - (60 * 24 * 60 * 60)
 
 CSV.read(ARGV[0], headers: true).each do |r|
-  phone_number = r["Phone Number"] if phone_number.empty?
+  pn = r["Phone Number"]
 
-  counts[:total] += 1
+  counts[pn][:total] += 1
 
   # Incoming calls that are redirected elsewhere are logged at least twice: as an
   # incoming call, and an outgoing call to the next number. And then another if it
@@ -22,14 +23,14 @@ CSV.read(ARGV[0], headers: true).each do |r|
   if r["Call Direction"] == "Originating"
     case r["Special Call Type"]
     when "Call Forward No Answer", "Call Forward Busy"
-      counts[:sent_to_voicemail] += 1
+      counts[pn][:sent_to_voicemail] += 1
       next
     when "Call Forward Always"
-      counts[:forwarded] += 1
+      counts[pn][:forwarded] += 1
       next
     when "Call Forward Selective"
       if r["Called Number"] = "500"
-        counts[:sent_to_aa] += 1
+        counts[pn][:sent_to_aa] += 1
         next
       else
         warn "Warning: unhandled 'Call Forward Selective' call"
@@ -37,15 +38,15 @@ CSV.read(ARGV[0], headers: true).each do |r|
         puts
       end
     when "BroadWorks Anywhere Location"
-      counts [:attempted_to_send_to_cell] += 1
+      counts[pn][:attempted_to_send_to_cell] += 1
       next
     when nil
       if r["Caller Name"] == "Voice Portal Voice Portal"
-        if r["Calling Number"] == phone_number
-          counts[:calls_to_voice_portal] += 1
+        if r["Calling Number"] == pn
+          counts[pn][:calls_to_voice_portal] += 1
           next
-        elsif r["Calling Number"] != phone_number
-          counts[:sent_to_voicemail] += 1
+        elsif r["Calling Number"] != pn
+          counts[pn][:sent_to_voicemail] += 1
           next
         end
       elsif r["Call Category"] == "private"
@@ -74,17 +75,17 @@ CSV.read(ARGV[0], headers: true).each do |r|
 
   if time > ONE_WEEK_AGO
     if r["Call Direction"] == "Terminating"
-      counts[:incoming_7] += 1
+      counts[pn][:incoming_7] += 1
     elsif r["Call Direction"] == "Originating"
-      counts[:outgoing_7] += 1
+      counts[pn][:outgoing_7] += 1
     end
   end
 
   if time >= SIXTY_DAYS_AGO
     if r["Call Direction"] == "Terminating"
-      counts[:incoming_60] += 1
+      counts[pn][:incoming_60] += 1
     elsif r["Call Direction"] == "Originating"
-      counts[:outgoing_60] += 1
+      counts[pn][:outgoing_60] += 1
     end
   elsif time < (SIXTY_DAYS_AGO - (1 * 24 * 60 * 60))
     # They only provide two months of logs. Add a grace day because it's
@@ -95,35 +96,39 @@ CSV.read(ARGV[0], headers: true).each do |r|
 
   if time >= FEB_START && time < MAR_START
     if r["Call Direction"] == "Terminating"
-      counts[:incoming_feb] += 1
+      counts[pn][:incoming_feb] += 1
     elsif r["Call Direction"] == "Originating"
-      counts[:outgoing_feb] += 1
+      counts[pn][:outgoing_feb] += 1
     end
   end
 end
 
-bold  = "\033[31;1;4m"
+blue  = "\033[34m"
+bu = "\033[1;4m"
 reset = "\033[0m"
 
-puts <<-OUTPUT
+counts.each do |pn, stats|
 
-Internal number #{phone_number} (#{counts[:total]} total logs)
+  puts <<-OUTPUT
 
-           Sent to voicemail: #{counts[:sent_to_voicemail]}
-                  Sent to AA: #{counts[:sent_to_aa]}
-                   Forwarded: #{counts[:forwarded]}
-   Attempted to ring to cell: #{counts[:attempted_to_send_to_cell]}
-Calls to portal from handset: #{counts[:calls_to_voice_portal]}
-    
+Internal number #{blue}#{pn}#{reset} (#{stats[:total]} total logs)
 
-#{bold}Incoming calls#{reset}
-     Past week: #{counts[:incoming_7]}
-      February: #{counts[:incoming_feb]}
-  Last 60 days: #{counts[:incoming_60]}
+  #{stats[:sent_to_voicemail]} sent to voicemail
+  #{stats[:sent_to_aa]} sent to AA
+  #{stats[:forwarded]} forwarded
+  #{stats[:attempted_to_send_to_cell]} attempted to ring to cell
+  #{stats[:calls_to_voice_portal]} calls to portal from handset
 
-#{bold}Outgoing calls#{reset}
-     Past week: #{counts[:outgoing_7]}
-      February: #{counts[:outgoing_feb]}
-  Last 60 days: #{counts[:outgoing_60]}
+  #{bu}Incoming calls#{reset}
+       Past week: #{stats[:incoming_7]}
+        February: #{stats[:incoming_feb]}
+    Last 60 days: #{stats[:incoming_60]}
 
-OUTPUT
+  #{bu}Outgoing calls#{reset}
+       Past week: #{stats[:outgoing_7]}
+        February: #{stats[:outgoing_feb]}
+    Last 60 days: #{stats[:outgoing_60]}
+
+  OUTPUT
+
+end
