@@ -108,17 +108,19 @@ bu = "\033[1;4m"
 reset = "\033[0m"
 
 counts.each do |pn, stats|
+  other_stats = ""
+  {"sent to voicemail":            stats[:sent_to_voicemail],
+   "sent to AA":                   stats[:sent_to_aa],
+   "forwarded":                    stats[:forwarded],
+   "attempted to ring to cell":    stats[:attempted_to_send_to_cell],
+   "to portal from handset": stats[:calls_to_voice_portal]}.each do |txt, number|
+     other_stats += "  #{number} call#{'s' if number > 1} #{txt}\n" if number > 0
+  end
 
   puts <<-OUTPUT
 
 Internal number #{blue}#{pn}#{reset} (#{stats[:total]} total logs)
-
-  #{stats[:sent_to_voicemail]} sent to voicemail
-  #{stats[:sent_to_aa]} sent to AA
-  #{stats[:forwarded]} forwarded
-  #{stats[:attempted_to_send_to_cell]} attempted to ring to cell
-  #{stats[:calls_to_voice_portal]} calls to portal from handset
-
+#{"\n" unless other_stats.empty?}#{other_stats}
   #{bu}Incoming calls#{reset}
        Past week: #{stats[:incoming_7]}
         February: #{stats[:incoming_feb]}
