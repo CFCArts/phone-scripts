@@ -5,6 +5,9 @@ require 'CSV'
 counts = Hash.new { |h, phone_number|
            h[phone_number] = Hash.new(0)
          }
+call_counts_by_day = Hash.new(0)
+earliest_time_seen = nil
+last_time_seen     = nil
 
 FEB_START      = DateTime.parse("2020-02-01 00:00:00 EST").to_time
 MAR_START      = DateTime.parse("2020-03-01 00:00:00 EST").to_time
@@ -14,6 +17,9 @@ SIXTY_DAYS_AGO = Time.now - (60 * 24 * 60 * 60)
 CSV.read(ARGV[0], headers: true).each do |r|
   # Time zone looks local? but not in the CSV... so we'll just pick EDT to get close
   time = DateTime.parse(r["Call Date"] + " " + r["Call Time"] + "EDT").to_time
+
+  earliest_time_seen = time if earliest_time_seen.nil? || earliest_time_seen > time
+  last_time_seen = time if last_time_seen.nil? || last_time_seen < time
 
   pn = r["Phone Number"]
 
@@ -68,6 +74,7 @@ CSV.read(ARGV[0], headers: true).each do |r|
     end
   end
 
+  call_counts_by_day[time.to_date] += 1
 
   if r["Call Direction"] != "Terminating" && r["Call Direction"] != "Originating"
     raise "Unknown Call Direction: #{r["Call Direction"]}"
@@ -103,6 +110,12 @@ CSV.read(ARGV[0], headers: true).each do |r|
   end
 end
 
+(earliest_time_seen.to_date..last_time_seen.to_date).each do |date|
+  if !call_counts_by_day.has_key?(date)
+    call_counts_by_day[date] = 0
+  end
+end
+
 blue  = "\033[34;7m"
 bu = "\033[1;4m"
 reset = "\033[0m"
@@ -129,4 +142,12 @@ Internal number #{blue}#{pn}#{reset} (#{stats[:total]} total logs)
 
 OUTPUT
 
+end
+
+puts "Earliest call seen: #{earliest_time_seen}"
+puts "    Last call seen: #{last_time_seen}"
+puts
+puts "By day:"
+call_counts_by_day.sort_by { |k, v| k.to_s }.each_with_index do |(date, count), i|
+  puts "  #{(i + 1).to_s.rjust(2)}. #{date}: #{count}"
 end
