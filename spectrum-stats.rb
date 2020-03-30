@@ -12,6 +12,9 @@ ONE_WEEK_AGO   = Time.now - (7 * 24 * 60 * 60)
 SIXTY_DAYS_AGO = Time.now - (60 * 24 * 60 * 60)
 
 CSV.read(ARGV[0], headers: true).each do |r|
+  # Time zone looks local? but not in the CSV... so we'll just pick EST to get close
+  time = DateTime.parse(r["Call Date"] + " " + r["Call Time"] + "EST").to_time
+
   pn = r["Phone Number"]
 
   counts[pn][:total] += 1
@@ -65,9 +68,6 @@ CSV.read(ARGV[0], headers: true).each do |r|
     end
   end
 
-
-  # Time zone looks local? but not in the CSV... so we'll just pick EST to get close
-  time = DateTime.parse(r["Call Date"] + " " + r["Call Time"] + "EST").to_time
 
   if r["Call Direction"] != "Terminating" && r["Call Direction"] != "Originating"
     raise "Unknown Call Direction: #{r["Call Direction"]}"
